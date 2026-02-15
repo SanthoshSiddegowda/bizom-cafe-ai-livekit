@@ -1,0 +1,2 @@
+livekit-agents[google,sarvam]
+python-dotenv
