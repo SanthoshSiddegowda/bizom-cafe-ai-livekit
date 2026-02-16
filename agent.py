@@ -50,8 +50,8 @@ class VoiceAgent(Agent):
             # Bulbul TTS - Converts text to speech
             tts=sarvam.TTS(
                 target_language_code="en-IN",
-                model="bulbul:v3",
-                speaker="simran"  # Female: priya, simran, ishita, kavya | Male: aditya, anand, rohan
+                model="bulbul:v2",
+                speaker="anushka"  # Female: priya, simran, ishita, kavya | Male: aditya, anand, rohan
             ),
         )
     
@@ -70,7 +70,6 @@ async def entrypoint(ctx: JobContext):
         agent=VoiceAgent(),
         room=ctx.room
     )
-
 
 if __name__ == "__main__":
     # Run the agent
