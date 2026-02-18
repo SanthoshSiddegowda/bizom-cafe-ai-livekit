@@ -2,7 +2,7 @@ import logging
 from dotenv import load_dotenv
 from livekit.agents import JobContext, WorkerOptions, cli
 from livekit.agents.voice import Agent, AgentSession
-from livekit.plugins import google, sarvam
+from livekit.plugins import google, sarvam, silero
 
 # Load environment variables
 load_dotenv()
@@ -63,9 +63,22 @@ class VoiceAgent(Agent):
 async def entrypoint(ctx: JobContext):
     """Main entry point - LiveKit calls this when a user connects"""
     logger.info(f"User connected to room: {ctx.room.name}")
-    
-    # Create and start the agent session
-    session = AgentSession(turn_detection="stt")
+
+    # VAD tuned for noisy cafeteria: stricter speech detection, ignore short bursts
+    vad = silero.VAD.load(
+        activation_threshold=0.7,  # Only clear speech (default 0.5); reduces dishes/chatter triggers
+        min_speech_duration=0.4,   # Ignore very short bursts (clatter, stray words)
+        min_silence_duration=0.7,   # Wait longer before end-of-turn so brief noise doesn't end it
+    )
+
+    # VAD-based turn detection instead of STT endpointing — avoids pauses on background noise
+    session = AgentSession(
+        turn_detection="vad",
+        vad=vad,
+        min_interruption_duration=0.7,  # Require sustained speech before interrupting (reduces false interrupts)
+        min_interruption_words=2,       # Need at least 2 words to count as real interruption
+        min_endpointing_delay=0.8,      # Wait a bit longer before considering turn complete
+    )
     await session.start(
         agent=VoiceAgent(),
         room=ctx.room

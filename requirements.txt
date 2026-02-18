@@ -1,2 +1,3 @@
 livekit-agents[google,sarvam]
+livekit-plugins-silero
 python-dotenv
