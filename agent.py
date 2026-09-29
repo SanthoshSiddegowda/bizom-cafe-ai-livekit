@@ -2,7 +2,7 @@ import logging
 from dotenv import load_dotenv
 from livekit.agents import JobContext, WorkerOptions, cli
 from livekit.agents.voice import Agent, AgentSession
-from livekit.plugins import google, sarvam, silero
+from livekit.plugins import google, silero, smallestai
 
 # Load environment variables
 load_dotenv()
@@ -37,21 +37,18 @@ class VoiceAgent(Agent):
                 "Respond in Indian English: natural, warm tone; use 'kindly', 'sure' where it fits."
             ),
             
-            # Saaras v3 STT - Converts speech to text
-            stt=sarvam.STT(
-                language="en-IN",  # or "hi-IN", etc.
-                model="saaras:v3",
-                flush_signal=True 
-            ),
+            # Smallest AI Pulse STT - Converts speech to text
+            stt=smallestai.STT(language="en"),  # or "hi"
             
-            # OpenAI LLM - The "brain" that processes and generates responses
-            llm=google.LLM(model="gemini-2.0-flash"),
+            # Gemini LLM - the "brain". gemini-2.0-flash is retired by Google, so calls 404
+            # and the agent goes silent after joining.
+            llm=google.LLM(model="gemini-3.1-flash-lite"),
             
-            # Bulbul TTS - Converts text to speech
-            tts=sarvam.TTS(
-                target_language_code="en-IN",
-                model="bulbul:v2",
-                speaker="anushka"  # Female: priya, simran, ishita, kavya | Male: aditya, anand, rohan
+            # Smallest AI Lightning TTS - Converts text to speech
+            tts=smallestai.TTS(
+                model="lightning_v3.1_pro",  # Premium pool incl. Indian voices
+                voice_id="meher",
+                language="en",
             ),
         )
     
@@ -66,18 +63,22 @@ async def entrypoint(ctx: JobContext):
 
     # VAD tuned for noisy cafeteria: stricter speech detection, ignore short bursts
     vad = silero.VAD.load(
-        activation_threshold=0.7,  # Only clear speech (default 0.5); reduces dishes/chatter triggers
+        activation_threshold=0.6,  # Stricter than default 0.5 for cafe noise; 0.7 dropped real speech
         min_speech_duration=0.4,   # Ignore very short bursts (clatter, stray words)
         min_silence_duration=0.7,   # Wait longer before end-of-turn so brief noise doesn't end it
     )
 
     # VAD-based turn detection instead of STT endpointing — avoids pauses on background noise
     session = AgentSession(
-        turn_detection="vad",
         vad=vad,
-        min_interruption_duration=0.7,  # Require sustained speech before interrupting (reduces false interrupts)
-        min_interruption_words=2,       # Need at least 2 words to count as real interruption
-        min_endpointing_delay=0.8,      # Wait a bit longer before considering turn complete
+        turn_handling={
+            "turn_detection": "vad",
+            "endpointing": {"min_delay": 0.8},  # Wait a bit longer before considering turn complete
+            "interruption": {
+                "min_duration": 0.7,  # Require sustained speech before interrupting (reduces false interrupts)
+                "min_words": 2,       # Need at least 2 words to count as real interruption
+            },
+        },
     )
     await session.start(
         agent=VoiceAgent(),
