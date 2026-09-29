@@ -87,4 +87,6 @@ async def entrypoint(ctx: JobContext):
 
 if __name__ == "__main__":
     # Run the agent
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
+    # Explicit dispatch: only rooms whose token requests "bizom-cafe" get this agent,
+    # so it never joins other agents' rooms in the same LiveKit project.
+    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, agent_name="bizom-cafe"))
